@@ -31,7 +31,7 @@ function equalBytes(a, b) { if (a.length !== b.length) return false; let d = 0; 
 async function safeEqual(a, b) { const k = crypto.getRandomValues(new Uint8Array(32)); return equalBytes(await hmac(k, String(a)), await hmac(k, String(b))); }
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-const SEC_HEADERS = { 'cache-control': 'no-store', 'x-frame-options': 'DENY', 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'" };
+const SEC_HEADERS = { 'cache-control': 'no-store', 'x-frame-options': 'DENY', 'x-content-type-options': 'nosniff', 'referrer-policy': 'same-origin', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'" };
 function json(data, status = 200, headers = {}) { return new Response(JSON.stringify(data, null, 2), { status, headers: { 'content-type': 'application/json; charset=utf-8', ...SEC_HEADERS, ...headers } }); }
 function page(title, body, status = 200, headers = {}) {
   const doc = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>' + esc(title) + '</title><style>body{font:16px/1.5 system-ui,sans-serif;max-width:32rem;margin:3rem auto;padding:0 1rem;color:#111}input,button{font:inherit;padding:.6rem .8rem;width:100%;box-sizing:border-box;margin:.3rem 0 .9rem}button{background:#111;color:#fff;border:0;border-radius:6px;cursor:pointer}input{border:1px solid #aaa;border-radius:6px}.muted{color:#555;font-size:.9rem}code{background:#eee;padding:.1rem .3rem;border-radius:4px;word-break:break-all}.err{color:#b00020}</style></head><body><h1>' + esc(title) + '</h1>' + body + '</body></html>';
@@ -99,7 +99,12 @@ function presentedKey(req) {
   const x = req.headers.get('x-bridge-key');
   return x ? x.trim() : null;
 }
-function sameOrigin(req, url) { const o = req.headers.get('origin'); return o === url.origin; }
+// Browser form posts from this site: Origin matches, or (when a browser sends Origin: null) Sec-Fetch-Site says same-origin.
+function sameOrigin(req, url) {
+  const o = req.headers.get('origin');
+  if (o === url.origin) return true;
+  return (o === null || o === 'null') && req.headers.get('sec-fetch-site') === 'same-origin';
+}
 
 // ---------- Upsy OAuth ----------
 async function fetchToken(body) {
